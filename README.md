@@ -15,7 +15,7 @@ this remains within the spirit of the game, if not the letter. 😛
 
 Required:
 - xdotool and an X11 compatible windowing system for windowing control and mouse emulation
-- a 1920x1090 resolution assumed (could be updated to work with more resolutions)
+- a 1920x1080 resolution assumed (could be updated to work with more resolutions)
 - GTK compatibility for the screenshots
 - the Tesseract command line executable for OCR/text recognition (with adequate tessdatas)
 

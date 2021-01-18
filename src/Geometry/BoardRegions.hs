@@ -13,7 +13,7 @@ center :: Region -> Position
 center (Reg pos1 pos2) = Pos ((x pos1 + x pos2) `div` 2) ((y pos1 + y pos2) `div` 2)
 
 bottomCenter :: Region -> Position
-bottomCenter (Reg pos1 pos2) = Pos ((x pos1 + x pos2) `div` 2) ((y pos1 + (9 * y pos2)) `div` 10)
+bottomCenter (Reg pos1 pos2) = Pos ((x pos1 + x pos2) `div` 2) ((y pos1 + (19 * y pos2)) `div` 20)
 
 offset :: Region -> Position -> Region
 offset (Reg pos1 pos2) pos =  Reg (pos1 + pos) (pos2 + pos)

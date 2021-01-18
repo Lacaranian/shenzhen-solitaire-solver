@@ -11,4 +11,4 @@ instance Show CropIndex where
     show (Double idx1 idx2) = show idx1 ++ "-" ++ show idx2
 
 savePath :: CropInfo -> String 
-savePath (CropInfo _ baseDir idx _) = (baseDir ++ show idx ++ ".png")
+savePath (CropInfo _ baseDir idx _) = baseDir ++ show idx ++ ".png"

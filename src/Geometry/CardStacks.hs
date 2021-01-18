@@ -1,4 +1,4 @@
-module Geometry.CardStacks (cardAtStack, freeCells, goalStacks, cardPresencePosition, cardNumInfo) where
+module Geometry.CardStacks (cardAtStack, freeCells, goalStacks, cardPresencePosition, cardNumInfo, cardNumberSize) where
 
 import Geometry.BoardPositions (Position(..))
 import Geometry.BoardRegions (Region(..), offset, bottomCenter)

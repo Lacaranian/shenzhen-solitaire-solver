@@ -55,19 +55,19 @@ cardStackCrops pixbuf stackNum = mapM (cropPixbuf pixbuf . cardAtStack stackNum)
 cardFromCardCrop :: CropInfo -> IO (Maybe Card) 
 cardFromCardCrop ci@(CropInfo pixbuf bd idx ct) = do
     (exists, (r, g, b)) <- cardExists pixbuf
-    (maybeCard, classif) <- if exists 
+    (maybeCard, classif, mSuitColor) <- if exists 
         then cardFromCardInfo ci
-        else return (Nothing, "")
-    putStrLn $ "Exists Color? (" ++ show exists ++ "): " ++ show (r, g, b) ++ " classified as '" ++ classif ++ "'"
+        else return (Nothing, "", Nothing)
+    putStrLn $ "Exists Color? (" ++ show exists ++ "): " ++ show (r, g, b) ++ " classified as '" ++ classif ++ "' with suit color " ++ show mSuitColor
     return maybeCard 
 
-cardFromCardInfo :: CropInfo -> IO (Maybe Card, String)
+cardFromCardInfo :: CropInfo -> IO (Maybe Card, String, Maybe String)
 cardFromCardInfo ci@(CropInfo pixbuf bd idx ct) = do
     numInfoCrop <- cropPixbuf pixbuf cardNumInfo
     let subscropInfo = ci { pixbuf = numInfoCrop, baseDir = bd ++ "cardInfo/", cropType = CardNumInfoCrop }
     saveCrop subscropInfo 
-    (card, classificationStr) <- classifyCard subscropInfo
-    return (Just card, classificationStr)
+    (card, classif, suitColor) <- classifyCard subscropInfo
+    return (Just card, classif, suitColor)
 
 -- Assumes the pixbuf passed in is cropped to a card's size
 cardExists :: Pixbuf -> IO (Bool, (Word8, Word8, Word8)) 

@@ -1,0 +1,53 @@
+name:                shenzhen-solitaire-solver
+version:             0.1.0.0
+github:              "Lacaranian/shenzhen-solitaire-solver"
+license:             BSD3
+author:              "Ben Elliott"
+maintainer:          "benjam.elliott@gmail.com"
+copyright:           "2021 Ben Elliott"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/Lacaranian/shenzhen-solitaire-solver#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- gtk >= 0.15 && < 0.16
+- text >= 1.2 && < 1.3
+- process >= 1.6 && < 1.7
+- array >= 0.5.4 && < 0.5.5
+- directory >= 1.3 && < 1.4
+
+library:
+  source-dirs: src
+
+executables:
+  shenzhen-solitaire-solver-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - shenzhen-solitaire-solver
+
+tests:
+  shenzhen-solitaire-solver-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - shenzhen-solitaire-solver

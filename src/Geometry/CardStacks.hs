@@ -1,4 +1,4 @@
-module Geometry.CardStacks (cardAtStack, freeCells, goalStacks, cardPresencePosition, cardNumInfo, cardNumberSize) where
+module Geometry.CardStacks (cardAtStack, freeCells, goalCells, cardPresencePosition, cardNumInfo, cardNumberSize) where
 
 import Geometry.BoardPositions (Position(..))
 import Geometry.BoardRegions (Region(..), offset, bottomCenter)
@@ -26,11 +26,11 @@ freeCell0 = offset cardSize (Pos 407 127)
 
 -- There are 3 goal stacks that start empty, and require cards from 1 to 9 to be added for each distinct suit
 -- The cards are moved to these goals automatically when it is trivial/safe to do so, but they may also be moved manually
-goalStacks :: [Region]
-goalStacks = map (\n -> offset goalStack0 (Pos n 0 * adjacentCardOffset)) $ take 3 [0..]
+goalCells :: [Region]
+goalCells = map (\n -> offset goalCell0 (Pos n 0 * adjacentCardOffset)) $ take 3 [0..]
 
-goalStack0 :: Region 
-goalStack0 = offset cardSize (Pos 1163 125)
+goalCell0 :: Region 
+goalCell0 = offset cardSize (Pos 1163 125)
 
 
 cardSize :: Region

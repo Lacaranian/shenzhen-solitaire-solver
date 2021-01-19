@@ -1,7 +1,4 @@
-module Lib
-    ( winGame
-    , testXDoTool
-    ) where
+module Lib (winGame) where
 
 import Control.Concurrent (threadDelay)
 
@@ -9,6 +6,7 @@ import Geometry.BoardPositions ( Position(Pos) )
 import Geometry.BoardRegions ( center )
 import Geometry.CardStacks ( cardAtStack, freeCells )
 
+import Game.Actions (availableActions, exec)
 import Game.FromScreen (gameFromScreen)
 
 import XDoTool (drag, findGameWindowID, focusWindow)
@@ -32,20 +30,14 @@ mainLoop = do
         -- pixbufCopyArea to get subregions to identify
     game <- gameFromScreen screenPixBuf
     print $ show game
-    print "TODO"
-    undefined -- TODO
     -- 3) identify valid moves possible on the current board
-    print "TODO"
-    -- 4) take a move (semi-random to start, with a mouse click mouse press + drag + release)
-    threadDelay 500000 -- to see the game open before moving things
-    drag (center $ cardAtStack 0 4) (center $ head freeCells)
-    undefined -- TODO
-    print "TODO"
+    let availActs = availableActions game
+    print $ show availActs
+    -- 4) take the best possible action (moves with a mouse click mouse press + drag + release)
+    threadDelay 300000 -- to see the game open before moving things, 5 second delay
+    exec $ head availActs
     --   4a) if no valid moves are possible, start a new game
     print "TODO"
     -- 5) return to 1 - maybe cache unmoving parts of the board's position?
     print "TODO"
     mainLoop
-
-testXDoTool :: IO ()
-testXDoTool = drag (Pos 540 30) (Pos 540 500)

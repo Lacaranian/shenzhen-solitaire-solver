@@ -1,8 +1,13 @@
 module Geometry.Buttons where
 
+import Game.State ( DragonSuit(..) )
 import Geometry.BoardPositions (Position(..))
 import Geometry.BoardRegions (Region(..), offset)
 
+dragonButtonForSuit :: DragonSuit -> Region
+dragonButtonForSuit Red   = redDragon
+dragonButtonForSuit Green = greenDragon
+dragonButtonForSuit White = whiteDragon
 
 redDragon :: Region 
 redDragon = Reg { pos1 = Pos 870 143, pos2 = Pos 906 173 }

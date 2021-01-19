@@ -2,17 +2,42 @@
 module Game.Actions where
 
 import Data.Bifunctor (bimap, first, second)
+import Data.List (find)
 import Data.Maybe (catMaybes, mapMaybe, listToMaybe, maybeToList)
 
-import Game.State (Game(..), Card(..), CardSuit(..), DragonSuit(..), GamePosition(..))
+import Game.State
+import Geometry.BoardRegions
+import Geometry.Buttons
+import Geometry.CardStacks
 import Util (lastOption, windows, takeWhilst)
+import XDoTool
 
-data Action = MoveAct Move | CompleteDragon DragonSuit | NewGame
+-- TODO - interleave a score with every Action
+data Action = MoveAct Move 
+            | CompleteDragon DragonCompletion
+            | NewGame
+            deriving (Eq, Show)
 
-data Move = Move { sourcePosition :: GamePosition, destinationPosition :: GamePosition }
+data Move = Move { sourcePosition :: GamePosition, destinationPosition :: GamePosition } deriving (Eq, Show)
+data DragonCompletion = DragonCompletion { forSuit :: DragonSuit, dragons :: [GamePosition], targetFreeCell :: GamePosition } deriving (Eq, Show)
+
+availableActions :: Game -> [Action]
+availableActions game = map MoveAct (availableMoves game) ++ map CompleteDragon (availableDragonCompletions game) -- TODO add new game as a last resort?
 
 availableMoves :: Game -> [Move]
-availableMoves game = movesToFreeCells game ++ movesToGoalCells game ++ movesToStacks game
+availableMoves game = movesToGoalCells game ++ movesToStacks game ++ movesToFreeCells game
+
+-- If there is an open free cell, or there is at least one dragon
+availableDragonCompletions :: Game -> [DragonCompletion]
+availableDragonCompletions game = do
+    let exposedCards = exposedFreeCellCards game ++ exposedStackCards game
+    dragonSuit <- [Red, Green, White]
+    let exposedDragonsOfSuit = filter (isDragonOfSuit dragonSuit . snd) exposedCards
+    targetFreeCell <- maybeToList (find isFreeCellPosition (map fst exposedDragonsOfSuit)) ++ openFreeCellSlots game
+    [DragonCompletion dragonSuit (map fst exposedDragonsOfSuit) targetFreeCell | length exposedDragonsOfSuit == 4]
+    where 
+        isDragonOfSuit reqSuit (Dragon suit) = suit == reqSuit
+        isDragonOfSuit _ _ = False
 
 -- Move any exposed stack card to an empty free cell
 movesToFreeCells :: Game -> [Move]
@@ -38,59 +63,21 @@ movesToStacks game = do
     (sourceCardPosition, sourceCard) <- exposedStackSubstacks game ++ exposedFreeCellCards game
     [Move sourceCardPosition destStackPosition | all (sourceCard `stacksOn`) maybeDestCard]
 
-stacksOn :: Card -> Card -> Bool
-stacksOn (Card num suit) (Card num2 suit2) = num + 1 == num2 && suit /= suit2  
-stacksOn _ _ = False
 
-matchesNumAndSuit :: Foldable t => Int -> t CardSuit -> Card -> Bool
-matchesNumAndSuit reqNum maybeSuit (Card num suit) = num == reqNum && all (== suit) maybeSuit
-matchesNumAndSuit reqNum maybeSuit _               = False
+exec :: Action -> IO ()
+exec (MoveAct (Move sourcePos destPos))            = drag (topCenter $ regionForGamePosition sourcePos) (topCenter $ regionForGamePosition destPos)
+exec (CompleteDragon (DragonCompletion suit _ _ )) = clickAt $ center $ dragonButtonForSuit suit
+exec NewGame                                       = clickAt $ center newGame
 
--- Cards that are always movable, by virtue of being the lowest card in any given stack
-exposedStackCardPositions :: Game -> [GamePosition]
-exposedStackCardPositions = map fst . exposedStackCards
+-- The expected new game state after an action is run
+-- Notably, after many actions, uncovered cards will automatically move to goal stacks on their own, so this must account for those
+updateGame :: Action -> Game -> Game
+updateGame act game = undefined
 
-exposedStackCards :: Game -> [(GamePosition, Card)]
-exposedStackCards game = do
-    (stackID, stack) <- zip [0..] $ cardStackCards game
-    maybeToList . lastOption $ zipWith (\idx card -> (CardStackSlot stackID idx, card)) [0..] stack
-
--- All movable parts of a stack, from bottom up to the last card that counts as a substack
-exposedStackSubstacks :: Game -> [(GamePosition, Card)]
-exposedStackSubstacks game = do
-    (stackID, stack) <- zip [0..] $ cardStackCards game
-    let indexedRevStack = reverse . zip [0..] $ stack
-    let positionedRevStack = map (Just . first  (CardStackSlot stackID)) indexedRevStack
-    let allWindows = windows 2 (Nothing : positionedRevStack)
-    let substackWindows = takeWhilst windowIsInSubstack allWindows 
-    catMaybes . mapMaybe (listToMaybe . drop 1) $ substackWindows
-
-emptyStacks :: Game -> [GamePosition]
-emptyStacks game = do
-    (stackID, stack) <- zip [0..] $ cardStackCards game
-    [CardStackSlot stackID 0 | null stack]
-
-windowIsInSubstack :: [Maybe (a, Card)] -> Bool
-windowIsInSubstack (Nothing : Just (_, upper) : _)          = True
-windowIsInSubstack (Just (_, lower) : Just (_, upper) : _)  = compatibleInSubstack lower upper
-windowIsInSubstack _                                        = False
-
-
--- Can the first card stack on top of the second card?
-compatibleInSubstack :: Card -> Card -> Bool
-compatibleInSubstack (Card num1 suit1) (Card num2 suit2) = num1 + 1 == num2 && suit1 /= suit2
-compatibleInSubstack _ _ = False
-
-exposedFreeCellCards :: Game -> [(GamePosition, Card)]
-exposedFreeCellCards game = mapMaybe (asFilled FreeCellSlot) . zip [0..] $ freeCellCards game
-        
-openFreeCellSlots :: Game -> [GamePosition]
-openFreeCellSlots = mapMaybe (asOpen FreeCellSlot) . zip [0..] . freeCellCards
-
-asFilled :: (Int -> GamePosition) -> (Int, Maybe a) -> Maybe (GamePosition, a)
-asFilled posGen (idx, Just card) = Just (posGen idx, card)
-asFilled posGen (idx, Nothing)   = Nothing
-
-asOpen :: (Int -> GamePosition) -> (Int, Maybe a) -> Maybe GamePosition
-asOpen posGen (idx, Just _)  = Nothing
-asOpen posGen (idx, Nothing) = Just (posGen idx)
+-- The Rose always moves to its special cell once uncovered
+--
+-- When are moves to goal cells automatic? 
+-- Appears to be when all cards of number 1 less than a candidate to automove could themselves automove, once uncovered
+-- Aka, the lowest numbered card in the goal cells (0 for empties)
+automaticActions :: Game ->  [Action]
+automaticActions game = map MoveAct $ movesToGoalCells game -- TODO filter to only autos, add Rose!

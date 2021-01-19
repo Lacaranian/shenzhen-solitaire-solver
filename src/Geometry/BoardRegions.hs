@@ -12,6 +12,9 @@ data Region = Reg { pos1 :: Position , pos2 :: Position }
 center :: Region -> Position
 center (Reg pos1 pos2) = Pos ((x pos1 + x pos2) `div` 2) ((y pos1 + y pos2) `div` 2)
 
+topCenter :: Region -> Position
+topCenter (Reg pos1 pos2) = Pos ((x pos1 + x pos2) `div` 2) (((19 * y pos1) + y pos2) `div` 20)
+
 bottomCenter :: Region -> Position
 bottomCenter (Reg pos1 pos2) = Pos ((x pos1 + x pos2) `div` 2) ((y pos1 + (19 * y pos2)) `div` 20)
 

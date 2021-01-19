@@ -13,7 +13,7 @@ import Graphics.UI.Gtk (Pixbuf(..), PixbufData(..), pixbufGetPixels, pixbufGetRo
 import CropInfo (CropInfo(..), CropIndex(..), CropType(..))
 import Game.State (Game(..), Card(..), CardSuit(..), DragonSuit(..))
 import Geometry.BoardPositions (Position(..))
-import Geometry.CardStacks (cardNumInfo,  cardAtStack, freeCells, goalStacks, cardPresencePosition )
+import Geometry.CardStacks (cardNumInfo,  cardAtStack, freeCells, goalCells, cardPresencePosition )
 import ScreenCapture ( saveCrop, cropPixbuf, pixelTest, pixelPatchTest )
 import SymbolRecognition ( classifyCard )
 
@@ -22,11 +22,11 @@ gameFromScreen :: Pixbuf -> IO Game
 gameFromScreen pixbuf = do
     -- crops from the main pixbuf
     freeCellCrops <- mapM (cropPixbuf pixbuf) freeCells
-    goalStackCrops <- mapM (cropPixbuf pixbuf) goalStacks
+    goalStackCrops <- mapM (cropPixbuf pixbuf) goalCells
     stacksCrops <- cardStacksCrops pixbuf
     cwd <- getCurrentDirectory
     let freeCellCropInfos = zipWith (\idx pb -> CropInfo pb (cwd ++ "/img/freeCells/") (Single idx) CardCrop) [0..] freeCellCrops
-    let goalStackCropInfos = zipWith (\idx pb -> CropInfo pb (cwd ++ "/img/goalStacks/") (Single idx) CardCrop) [0..] goalStackCrops
+    let goalStackCropInfos = zipWith (\idx pb -> CropInfo pb (cwd ++ "/img/goalCells/") (Single idx) CardCrop) [0..] goalStackCrops
     let cardStackCropInfos = zipWith (\stackID stack -> zipWith (\idx pb -> CropInfo pb (cwd ++ "/img/cardStacks/") (Double stackID idx) CardCrop) [0..] stack) [0..] stacksCrops
     mapM_ saveCrop $ freeCellCropInfos ++ goalStackCropInfos ++ concat cardStackCropInfos
     -- cards from those crops

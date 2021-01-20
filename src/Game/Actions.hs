@@ -3,18 +3,19 @@ module Game.Actions where
 
 import Data.Bifunctor (bimap, first, second)
 import Data.List (find)
-import Data.Maybe (catMaybes, mapMaybe, listToMaybe, maybeToList)
+import Data.Maybe (maybe, catMaybes, mapMaybe, listToMaybe, maybeToList, fromMaybe)
 
 import Game.State
 import Geometry.BoardRegions
 import Geometry.Buttons
 import Geometry.CardStacks
-import Util (lastOption, windows, takeWhilst)
+import Util (lastOption, windows, takeWhilst, insertedAt, removedAt, replacedAt)
 import XDoTool
 
 -- TODO - interleave a score with every Action
 data Action = MoveAct Move 
             | CompleteDragon DragonCompletion
+            | MoveRose GamePosition
             | NewGame
             deriving (Eq, Show)
 
@@ -63,6 +64,10 @@ movesToStacks game = do
     (sourceCardPosition, sourceCard) <- exposedStackSubstacks game ++ exposedFreeCellCards game
     [Move sourceCardPosition destStackPosition | all (sourceCard `stacksOn`) maybeDestCard]
 
+execWithUpdate :: Game -> Action -> IO Game
+execWithUpdate game act = do
+    exec act
+    return $ updateGame act game
 
 exec :: Action -> IO ()
 exec (MoveAct (Move sourcePos destPos))            = drag (topCenter $ regionForGamePosition sourcePos) (topCenter $ regionForGamePosition destPos)
@@ -72,12 +77,46 @@ exec NewGame                                       = clickAt $ center newGame
 -- The expected new game state after an action is run
 -- Notably, after many actions, uncovered cards will automatically move to goal stacks on their own, so this must account for those
 updateGame :: Action -> Game -> Game
-updateGame act game = undefined
+updateGame act game = foldl (flip updateGame) steppedGame $ automaticActions steppedGame
+    where steppedGame = updateGameOnce act game
+
+updateGameOnce :: Action -> Game -> Game
+-- TODO: Moving stacks needs to move multiple cards at once
+updateGameOnce (MoveAct (Move src dest)) game = addedAtPosition dest card . removedAtPosition src $ game
+    where card = fromMaybe Rose $ cardAtPosition game src
+updateGameOnce (MoveRose pos) game = removedAtPosition pos game
+updateGameOnce (CompleteDragon (DragonCompletion _ drags dest)) game = removePosition dest . foldl (flip removedAtPosition) game $ drags
+updateGameOnce NewGame game = undefined -- Randomized new game state that has to be screenshotted
+
+addedAtPosition :: GamePosition -> Card -> Game -> Game
+addedAtPosition (FreeCellSlot idx)          card game = game { freeCellCards = replacedAt idx (Just card) $ freeCellCards game} 
+addedAtPosition (CardStackSlot stackID idx) card game = game { cardStackCards = replacedAt stackID (insertedAt idx card $ cscs !! stackID) cscs }
+    where cscs = cardStackCards game
+addedAtPosition (GoalCellSlot idx)          card game = game { goalCellCards = replacedAt idx (Just card) $ goalCellCards game} 
+
+removedAtPosition :: GamePosition -> Game -> Game
+removedAtPosition (FreeCellSlot idx)          game = game { freeCellCards = replacedAt idx Nothing $ freeCellCards game} 
+removedAtPosition (CardStackSlot stackID idx) game = game { cardStackCards = replacedAt stackID (removedAt idx $ cscs !! stackID) cscs }
+    where cscs = cardStackCards game
+-- Impossible to remove goal cell cards once moved, though it would be a card of matching suit and value 1 less, or else an empty cell
+removedAtPosition (GoalCellSlot idx)          game = undefined
+
+removePosition :: GamePosition -> Game -> Game
+removePosition (FreeCellSlot idx) game = game { freeCellCards = removedAt idx $ freeCellCards game }
+removePosition _                  _    = undefined
 
 -- The Rose always moves to its special cell once uncovered
 --
 -- When are moves to goal cells automatic? 
--- Appears to be when all cards of number 1 less than a candidate to automove could themselves automove, once uncovered
+-- Appears to be when 
+-- - there exists a free cell with a possible move
+-- - all cards of number 1 less than a candidate to automove could themselves automove, once uncovered
 -- Aka, the lowest numbered card in the goal cells (0 for empties)
-automaticActions :: Game ->  [Action]
-automaticActions game = map MoveAct $ movesToGoalCells game -- TODO filter to only autos, add Rose!
+automaticActions :: Game -> [Action]
+automaticActions game = maybeToList moveRose ++ autoMoves
+    where 
+        moveRose  = fmap (MoveRose . fst) . find ((== Rose) . snd) $ exposedStackCards game
+        autoMoves = map MoveAct . filter (isAutoMove . cardAtPosition game . sourcePosition) $ movesToGoalCells game
+        autoMoveNum = maximum $ map (maybe 2 (\(Card num _) -> num + 2)) $ goalCellCards game
+        isAutoMove (Just (Card num _)) = num <= autoMoveNum
+        isAutoMove _ = False

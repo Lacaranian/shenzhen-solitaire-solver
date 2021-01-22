@@ -3,7 +3,7 @@ module Game.Actions where
 
 import Data.Bifunctor (bimap, first, second)
 import Data.List (find)
-import Data.Maybe (maybe, catMaybes, mapMaybe, listToMaybe, maybeToList, fromMaybe)
+import Data.Maybe (maybe, catMaybes, mapMaybe, listToMaybe, maybeToList, fromMaybe, isJust)
 
 import Game.State
 import Geometry.BoardRegions
@@ -60,14 +60,16 @@ movesToGoalCells game = do
 --   - a target stack where the target card is 1 greater value, and a different suit, than the base of the stack 
 movesToStacks :: Game -> [Move]
 movesToStacks game = do
-    (destStackPosition, maybeDestCard) <- map (second Just) (exposedStackCards game) ++ map (, Nothing) (emptyStacks game) 
+    (dest@(CardStackSlot destStackID destCardIdx), maybeDestCard) <- map (second Just) (exposedStackCards game) ++ map (, Nothing) (emptyStacks game)
+    let actualDestPosition = if isJust maybeDestCard then CardStackSlot destStackID (destCardIdx + 1) else dest
     (sourceCardPosition, sourceCard) <- exposedStackSubstacks game ++ exposedFreeCellCards game
-    [Move sourceCardPosition destStackPosition | all (sourceCard `stacksOn`) maybeDestCard]
+    [Move sourceCardPosition actualDestPosition | all (sourceCard `stacksOn`) maybeDestCard]
 
 execWithUpdate :: Game -> Action -> IO Game
 execWithUpdate game act = do
+    let newGame = updateGame act game
     exec act
-    return $ updateGame act game
+    return newGame
 
 exec :: Action -> IO ()
 exec (MoveAct (Move sourcePos destPos))            = drag (topCenter $ regionForGamePosition sourcePos) (topCenter $ regionForGamePosition destPos)
@@ -82,6 +84,8 @@ updateGame act game = foldl (flip updateGame) steppedGame $ automaticActions ste
 
 updateGameOnce :: Action -> Game -> Game
 -- TODO: Moving stacks needs to move multiple cards at once
+updateGameOnce (MoveAct (Move src@(CardStackSlot stackID idx) dest)) game
+    | idx + 1 < length (cardStackCards game !! stackID) = moveSubstack src dest game
 updateGameOnce (MoveAct (Move src dest)) game = addedAtPosition dest card . removedAtPosition src $ game
     where card = fromMaybe Rose $ cardAtPosition game src
 updateGameOnce (MoveRose pos) game = removedAtPosition pos game
@@ -90,7 +94,7 @@ updateGameOnce NewGame game = undefined -- Randomized new game state that has to
 
 addedAtPosition :: GamePosition -> Card -> Game -> Game
 addedAtPosition (FreeCellSlot idx)          card game = game { freeCellCards = replacedAt idx (Just card) $ freeCellCards game} 
-addedAtPosition (CardStackSlot stackID idx) card game = game { cardStackCards = replacedAt stackID (insertedAt idx card $ cscs !! stackID) cscs }
+addedAtPosition (CardStackSlot stackID idx) card game = game { cardStackCards = replacedAt stackID (insertedAt idx card $ cscs !! stackID) cscs } -- TODO +1 to destIdx here, or in use sites?
     where cscs = cardStackCards game
 addedAtPosition (GoalCellSlot idx)          card game = game { goalCellCards = replacedAt idx (Just card) $ goalCellCards game} 
 
@@ -104,6 +108,16 @@ removedAtPosition (GoalCellSlot idx)          game = undefined
 removePosition :: GamePosition -> Game -> Game
 removePosition (FreeCellSlot idx) game = game { freeCellCards = removedAt idx $ freeCellCards game }
 removePosition _                  _    = undefined
+
+moveSubstack :: GamePosition -> GamePosition -> Game -> Game
+moveSubstack src@(CardStackSlot stackID idx) (CardStackSlot destStackID destIdx) game = foldl (\newGame move -> move newGame) game moves
+    where 
+        moves = map moveSingle [destIdx .. destIdx + substackLength - 1]
+        moveSingle newDestIdx = uncurry (addedAtPosition (CardStackSlot destStackID newDestIdx)) . second (removedAtPosition src) . withSrcCard
+        withSrcCard  newGame = (fromMaybe Rose $ cardAtPosition newGame src, newGame)
+        substackLength = sourceStacklength - idx
+        sourceStacklength = length (cardStackCards game !! stackID)
+moveSubstack _ _ _ = undefined -- Substacks only move around on the main board
 
 -- The Rose always moves to its special cell once uncovered
 --

@@ -1,6 +1,9 @@
 module Util where
 
-import Data.List ( transpose, tails)
+import Data.List (transpose, tails)
+import Data.Maybe ( isNothing ) 
+import Data.Foldable (maximumBy, Foldable)
+import Data.Ord      (comparing)
 
 -- safer O(n) version of (!!)
 (!!?) :: [a] -> Int -> Maybe a
@@ -34,3 +37,9 @@ replacedAt :: Int -> a -> [a] -> [a]
 replacedAt 0   newValue (x : xs) = newValue : xs
 replacedAt idx newValue []       = undefined -- Can't access indices out of bounds
 replacedAt idx newValue (x : xs) = x : replacedAt (idx - 1) newValue xs
+
+maxOn :: (Foldable t, Ord a) => (b -> a) -> t b -> b
+maxOn = maximumBy . comparing
+
+firstJust :: [a -> Maybe b] -> a -> Maybe b
+firstJust maybeGens seed = foldr (\gen value -> if isNothing value then gen seed else value) Nothing maybeGens

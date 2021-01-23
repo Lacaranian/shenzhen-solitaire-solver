@@ -1,4 +1,4 @@
-module XDoTool (drag, click, clickAt, findGameWindowID, focusWindow) where
+module XDoTool (drag, click, clickAt, findGameWindowID, focusWindow, mouseMove ) where
 
 import Control.Concurrent (threadDelay)
 import Control.Monad ( void )

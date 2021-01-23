@@ -82,6 +82,14 @@ updateGame :: Action -> Game -> Game
 updateGame act game = foldl (flip updateGame) steppedGame $ automaticActions steppedGame
     where steppedGame = updateGameOnce act game
 
+updateGameDebug :: Action -> Game -> IO Game
+updateGameDebug act game = do
+    putStrLn $ "Game updated by " ++ show act ++ " is:"
+    let newGame = updateGame act game
+    print newGame
+    return newGame
+    
+
 updateGameOnce :: Action -> Game -> Game
 -- TODO: Moving stacks needs to move multiple cards at once
 updateGameOnce (MoveAct (Move src@(CardStackSlot stackID idx) dest)) game

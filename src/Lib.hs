@@ -7,13 +7,14 @@ import Geometry.BoardPositions ( Position(Pos) )
 import Geometry.BoardRegions ( center )
 import Geometry.CardStacks ( cardAtStack, freeCells )
 
-import Game.Actions (availableActions, execWithUpdate)
+import Game.Actions ( Action, availableActions, execWithUpdate)
+import Game.AI ( firstMoveAI, maximizeMovesAI )
 import Game.State ( Game ) 
 import Game.FromScreen (gameFromScreen)
 
-import XDoTool (drag, findGameWindowID, focusWindow)
+import XDoTool ( drag, findGameWindowID, focusWindow, mouseMove )
 import ScreenCapture ( cropPixbuf, screenshot )
-
+import Util ( firstJust ) 
 
 winGame :: IO ()
 winGame = do
@@ -30,6 +31,7 @@ mainLoop = do
     screenPixBuf <- screenshot
     -- 2) identify all cards/slots/buttons we expect to see (pixels -> board state)
         -- pixbufCopyArea to get subregions to identify
+    mouseMove 0 0 -- to avoid screenshotting the mouse covering game elements
     game <- gameFromScreen screenPixBuf
     print $ show game
     actionLoop game
@@ -42,8 +44,17 @@ actionLoop :: Game -> IO ()
 actionLoop game = do
     -- 3) identify valid moves possible on the current board
     let availActs = availableActions game
-    threadDelay 1000000 -- to let the game open before moving things
-    case availActs of
-        []       -> void $ putStrLn ("Found no actions for game state" ++ show game)
+    threadDelay 100000 -- to let the game open before moving things along
+    let bestAct = firstJust (map uncurry [maximizeMovesAI, firstMoveAI]) (game, availActs)
+    case bestAct of
+        Nothing  -> void $ putStrLn "" >> putStrLn ("Found no actions among "++ show availActs ++" for game state" ++ show game)
         -- 4) take the best possible action (moves with a mouse click mouse press + drag + release)
-        (x : xs) -> putStrLn ("Chosen move: " ++ show x) >> execWithUpdate game x >>= actionLoop
+        Just act -> takeMove game act
+
+takeMove :: Game -> Action -> IO ()
+takeMove game act = do 
+    putStrLn ("Chosen move: " ++ show act)
+    threadDelay 1000
+    newGame <- execWithUpdate game act
+    actionLoop newGame
+

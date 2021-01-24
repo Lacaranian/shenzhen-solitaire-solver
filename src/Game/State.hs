@@ -6,7 +6,7 @@ import Data.Maybe (catMaybes, mapMaybe, listToMaybe, maybeToList)
 
 import Geometry.BoardRegions
 import Geometry.CardStacks
-import Util ((!!?), lastOption, windows, takeWhilst)
+import Util ((!!?), lastOption, windows, takeWhilst, count)
 
 
 data Game = Game { freeCellCards :: [Maybe Card], goalCellCards :: [Maybe Card], cardStackCards :: [[Card]] } deriving (Eq, Show)
@@ -91,7 +91,7 @@ openFreeCellSlots :: Game -> [GamePosition]
 openFreeCellSlots = mapMaybe (asOpen FreeCellSlot) . zip [0..] . freeCellCards
 
 asFilled :: (Int -> GamePosition) -> (Int, Maybe a) -> Maybe (GamePosition, a)
-asFilled posGen (idx, Just card) = Just (posGen idx, card)
+asFilled posGen (idx, Just card) = Just (posGen idx, card)                         
 asFilled posGen (idx, Nothing)   = Nothing
 
 asOpen :: (Int -> GamePosition) -> (Int, Maybe a) -> Maybe GamePosition
@@ -109,3 +109,9 @@ isFreeCellPosition _                = False
 stacksOn :: Card -> Card -> Bool
 stacksOn (Card num suit) (Card num2 suit2) = num + 1 == num2 && suit /= suit2  
 stacksOn _ _ = False
+
+numEmptySlots :: Game -> Int
+numEmptySlots game = length (openFreeCellSlots game) + count (==[]) (cardStackCards game)
+
+didWin :: Game -> Bool
+didWin game = all (==[]) $ cardStackCards game

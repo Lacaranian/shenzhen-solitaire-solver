@@ -41,5 +41,11 @@ replacedAt idx newValue (x : xs) = x : replacedAt (idx - 1) newValue xs
 maxOn :: (Foldable t, Ord a) => (b -> a) -> t b -> b
 maxOn = maximumBy . comparing
 
+maxOnOption :: (Foldable t, Ord a) => (b -> a) -> t b -> Maybe b
+maxOnOption func foldable  = if null foldable then Nothing else Just $ maxOn func foldable
+
 firstJust :: [a -> Maybe b] -> a -> Maybe b
 firstJust maybeGens seed = foldr (\gen value -> if isNothing value then gen seed else value) Nothing maybeGens
+
+count :: (a -> Bool) -> [a] -> Int 
+count pred xs = length $ filter pred xs

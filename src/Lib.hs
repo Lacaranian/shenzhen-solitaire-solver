@@ -8,7 +8,7 @@ import Geometry.BoardRegions ( center )
 import Geometry.CardStacks ( cardAtStack, freeCells )
 
 import Game.Actions ( Action, availableActions, execWithUpdate)
-import Game.AI ( firstMoveAI, maximizeMovesAI )
+import Game.AI ( scoredAI, firstMoveAI, maximizeMovesAI, antiDirectLoopingFilter )
 import Game.State ( Game ) 
 import Game.FromScreen (gameFromScreen)
 
@@ -34,18 +34,19 @@ mainLoop = do
     mouseMove 0 0 -- to avoid screenshotting the mouse covering game elements
     game <- gameFromScreen screenPixBuf
     print $ show game
+    -- 3) Make good moves as long as possible
     actionLoop game
-    --   4a) if no valid moves are possible, start a new game
+    -- 4) if no valid moves are possible, start a new game
     print "TODO"
     undefined
     mainLoop
 
 actionLoop :: Game -> IO ()
 actionLoop game = do
-    -- 3) identify valid moves possible on the current board
+    -- 1) identify valid moves possible on the current board
     let availActs = availableActions game
-    threadDelay 100000 -- to let the game open before moving things along
-    let bestAct = firstJust (map uncurry [maximizeMovesAI, firstMoveAI]) (game, availActs)
+    threadDelay 5000000 -- 0.5 seconds, to let the game open/update before moving things along
+    let bestAct = scoredAI game availActs
     case bestAct of
         Nothing  -> void $ putStrLn "" >> putStrLn ("Found no actions among "++ show availActs ++" for game state" ++ show game)
         -- 4) take the best possible action (moves with a mouse click mouse press + drag + release)
@@ -54,7 +55,6 @@ actionLoop game = do
 takeMove :: Game -> Action -> IO ()
 takeMove game act = do 
     putStrLn ("Chosen move: " ++ show act)
-    threadDelay 1000
     newGame <- execWithUpdate game act
     actionLoop newGame
 

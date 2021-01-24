@@ -1,6 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 module Game.Actions where
 
+import Control.Monad (guard)
 import Data.Bifunctor (bimap, first, second)
 import Data.List (find)
 import Data.Maybe (maybe, catMaybes, mapMaybe, listToMaybe, maybeToList, fromMaybe, isJust)
@@ -9,7 +10,7 @@ import Game.State
 import Geometry.BoardRegions
 import Geometry.Buttons
 import Geometry.CardStacks
-import Util (lastOption, windows, takeWhilst, insertedAt, removedAt, replacedAt)
+import Util (headOption, lastOption, windows, takeWhilst, insertedAt, removedAt, replacedAt)
 import XDoTool
 
 -- TODO - interleave a score with every Action
@@ -31,11 +32,12 @@ availableMoves game = movesToGoalCells game ++ movesToStacks game ++ movesToFree
 -- If there is an open free cell, or there is at least one dragon
 availableDragonCompletions :: Game -> [DragonCompletion]
 availableDragonCompletions game = do
-    let exposedCards = exposedFreeCellCards game ++ exposedStackCards game
     dragonSuit <- [Red, Green, White]
+    let exposedCards = exposedFreeCellCards game ++ exposedStackCards game
     let exposedDragonsOfSuit = filter (isDragonOfSuit dragonSuit . snd) exposedCards
     targetFreeCell <- maybeToList (find isFreeCellPosition (map fst exposedDragonsOfSuit)) ++ openFreeCellSlots game
-    [DragonCompletion dragonSuit (map fst exposedDragonsOfSuit) targetFreeCell | length exposedDragonsOfSuit == 4]
+    guard . (== 4) . length $ exposedDragonsOfSuit 
+    return $ DragonCompletion dragonSuit (map fst exposedDragonsOfSuit) targetFreeCell
     where 
         isDragonOfSuit reqSuit (Dragon suit) = suit == reqSuit
         isDragonOfSuit _ _ = False
@@ -79,26 +81,18 @@ exec NewGame                                       = clickAt $ center newGame
 -- The expected new game state after an action is run
 -- Notably, after many actions, uncovered cards will automatically move to goal stacks on their own, so this must account for those
 updateGame :: Action -> Game -> Game
-updateGame act game = foldl (flip updateGame) steppedGame $ automaticActions steppedGame
-    where steppedGame = updateGameOnce act game
+updateGame act game = autoUpdated steppedGame
+    where steppedGame = updateGameOnce game act
 
-updateGameDebug :: Action -> Game -> IO Game
-updateGameDebug act game = do
-    putStrLn $ "Game updated by " ++ show act ++ " is:"
-    let newGame = updateGame act game
-    print newGame
-    return newGame
-    
-
-updateGameOnce :: Action -> Game -> Game
+updateGameOnce :: Game -> Action -> Game
 -- TODO: Moving stacks needs to move multiple cards at once
-updateGameOnce (MoveAct (Move src@(CardStackSlot stackID idx) dest)) game
+updateGameOnce game (MoveAct (Move src@(CardStackSlot stackID idx) dest))
     | idx + 1 < length (cardStackCards game !! stackID) = moveSubstack src dest game
-updateGameOnce (MoveAct (Move src dest)) game = addedAtPosition dest card . removedAtPosition src $ game
+updateGameOnce game (MoveAct (Move src dest)) = addedAtPosition dest card . removedAtPosition src $ game
     where card = fromMaybe Rose $ cardAtPosition game src
-updateGameOnce (MoveRose pos) game = removedAtPosition pos game
-updateGameOnce (CompleteDragon (DragonCompletion _ drags dest)) game = removePosition dest . foldl (flip removedAtPosition) game $ drags
-updateGameOnce NewGame game = undefined -- Randomized new game state that has to be screenshotted
+updateGameOnce game (MoveRose pos) = removedAtPosition pos game
+updateGameOnce game (CompleteDragon (DragonCompletion _ drags dest)) = removePosition dest . foldl (flip removedAtPosition) game $ drags
+updateGameOnce game NewGame = undefined -- Randomized new game state that has to be screenshotted
 
 addedAtPosition :: GamePosition -> Card -> Game -> Game
 addedAtPosition (FreeCellSlot idx)          card game = game { freeCellCards = replacedAt idx (Just card) $ freeCellCards game} 
@@ -108,7 +102,7 @@ addedAtPosition (GoalCellSlot idx)          card game = game { goalCellCards = r
 
 removedAtPosition :: GamePosition -> Game -> Game
 removedAtPosition (FreeCellSlot idx)          game = game { freeCellCards = replacedAt idx Nothing $ freeCellCards game} 
-removedAtPosition (CardStackSlot stackID idx) game = game { cardStackCards = replacedAt stackID (removedAt idx $ cscs !! stackID) cscs }
+removedAtPosition (CardStackSlot stackID idx) game = game { cardStackCards = replacedAt stackID (removedAt idx $ cscs !! stackID) cscs } -- HERE, removed in stack 0 idx 2, after there's only 2 there (idx 0 and 1)!
     where cscs = cardStackCards game
 -- Impossible to remove goal cell cards once moved, though it would be a card of matching suit and value 1 less, or else an empty cell
 removedAtPosition (GoalCellSlot idx)          game = undefined
@@ -127,6 +121,20 @@ moveSubstack src@(CardStackSlot stackID idx) (CardStackSlot destStackID destIdx)
         sourceStacklength = length (cardStackCards game !! stackID)
 moveSubstack _ _ _ = undefined -- Substacks only move around on the main board
 
+autoUpdated :: Game -> Game
+autoUpdated = fst . autoUpdates
+
+autoUpdates :: Game -> (Game, [Action])
+autoUpdates game = autoUpdatesFromNext $ nextAutoAction game
+    where 
+        autoUpdatesFromNext (Just act) = 
+            let nextGame = updateGameOnce game act in 
+            let (finalGame, nextUpdates) = autoUpdates nextGame in 
+                (finalGame, act : nextUpdates)
+        autoUpdatesFromNext Nothing    = (game, [])
+        nextAutoAction = headOption . automaticActions
+
+
 -- The Rose always moves to its special cell once uncovered
 --
 -- When are moves to goal cells automatic? 
@@ -142,3 +150,7 @@ automaticActions game = maybeToList moveRose ++ autoMoves
         autoMoveNum = maximum $ map (maybe 2 (\(Card num _) -> num + 2)) $ goalCellCards game
         isAutoMove (Just (Card num _)) = num <= autoMoveNum
         isAutoMove _ = False
+
+isInverseAction :: Action -> Action -> Bool
+isInverseAction (MoveAct (Move src dest)) (MoveAct (Move otherSrc otherDest)) = src == otherDest && dest == otherSrc
+isInverseAction act otherAct = False

@@ -1,20 +1,15 @@
 module Game.FromScreen (gameFromScreen, CropInfo(..)) where
 
-import Control.Concurrent (threadDelay)
-import Data.Foldable (foldMap)
-import Data.Functor ((<&>))
-import Data.Maybe ( catMaybes, mapMaybe, fromMaybe, isJust )
+import Data.Maybe ( catMaybes, isJust )
 import Data.Word (Word8(..))
-import Data.Array.MArray (MArray(..), readArray)
 import System.Directory (getCurrentDirectory)
 
-import Graphics.UI.Gtk (Pixbuf(..), PixbufData(..), pixbufGetPixels, pixbufGetRowstride, pixbufGetNChannels)
+import Graphics.UI.Gtk (Pixbuf(..))
 
 import CropInfo (CropInfo(..), CropIndex(..), CropType(..))
-import Game.State (Game(..), Card(..), CardSuit(..), DragonSuit(..))
-import Geometry.BoardPositions (Position(..))
+import Game.State (Game(..), Card(..))
 import Geometry.CardStacks (cardNumInfo,  cardAtStack, freeCells, goalCells, cardPresencePosition )
-import ScreenCapture ( saveCrop, cropPixbuf, pixelTest, pixelPatchTest )
+import ScreenCapture ( saveCrop, cropPixbuf, pixelPatchTest )
 import SymbolRecognition ( classifyCard )
 
 

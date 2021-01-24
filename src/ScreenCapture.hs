@@ -1,36 +1,27 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ScreenCapture (cropPixbuf, screenshot, pixelTest, pixelPatchTest, saveCrop) where
 
-import System.Environment ( getArgs )
-import qualified Data.Text as T ( Text )
 import Data.Word (Word8(..))
 
-import Data.Array.MArray (MArray(..), readArray)
+import Data.Array.MArray (readArray)
 
 import Graphics.UI.Gtk
     ( drawWindowGetOrigin,
       drawableGetSize,
-      pixbufCopyArea,
-      pixbufGetBitsPerSample,
-      pixbufGetColorSpace,
       pixbufGetFromDrawable,
-      pixbufGetHasAlpha,
       pixbufGetNChannels,
       pixbufGetPixels,
       pixbufGetRowstride,
-      pixbufNew,
       pixbufNewSubpixbuf,
       pixbufSave,
       screenGetDefault,
       screenGetRootWindow,
       initGUI,
-      Colorspace,
       Pixbuf,
       PixbufData(..),
       Rectangle(Rectangle))
 
 import CropInfo (CropInfo(..), savePath)
-import Game.State (Game(..), Card(..), CardSuit(..), DragonSuit(..))
 import Geometry.BoardPositions (Position(..))
 import Geometry.BoardRegions (Region(..))
 
@@ -84,11 +75,11 @@ spreadPositions (Pos x y) spread = do
     Pos someX <$> [y - spread .. y + spread]
 
 -- Assumes each sub-array (representing all channels of a single pixel) are the same length
--- Also assumes at least one pixel exists in the list
 avgPixels :: Int -> [[Word8]] -> [Word8] 
 avgPixels nChannels (firstPixel : restPixels) = map round avgPixel
-    where 
-        (count, avgPixel) = foldl rollingListAvg (1, map fromIntegral firstPixel) $ map (map fromIntegral) restPixels
+    where (count, avgPixel) = foldl rollingListAvg (1, map fromIntegral firstPixel) $ map (map fromIntegral) restPixels
+avgPixels nChannels []                        = undefined -- Also assumes at least one pixel exists in the list
+    
 
 rollingListAvg :: (Num a, Real a, Fractional a) => (Int, [a]) -> [a] -> (Int, [a])
 rollingListAvg (soFarCount, soFarAvgPixel) pixel = (soFarCount + 1, newAvg)

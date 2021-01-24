@@ -75,4 +75,4 @@ extra-deps:
 # compiler-check: newer-minor
 
 ghc-options:
-  "$locals": -fprof-auto -fprof-cafs
+  "$locals": -fprof-auto -fprof-cafs -fwarn-unused-imports -fwarn-incomplete-uni-patterns -fwarn-incomplete-patterns

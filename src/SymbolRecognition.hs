@@ -2,17 +2,14 @@ module SymbolRecognition where
 
 import Data.Bifunctor ( Bifunctor(bimap) )
 import Data.Char (isSpace)
-import Data.Maybe ( fromMaybe, catMaybes, listToMaybe ) 
+import Data.Maybe ( fromMaybe ) 
 import Data.Functor ((<&>))
 import Text.Read (readMaybe)
-import Control.Concurrent (threadDelay)
-import Control.Monad ( void )
 import System.Process (readCreateProcess, proc, CreateProcess(..))
 
-import CropInfo (CropInfo(..), CropIndex(..), CropType(..), savePath)
+import CropInfo (CropInfo(..), savePath)
 import Game.State (Card(..), CardSuit(..), DragonSuit(..))
-import Geometry.BoardPositions ( Position(..) )
-import Geometry.BoardRegions ( Region(..), center )
+import Geometry.BoardRegions ( center )
 import Geometry.CardStacks (cardNumberSize)
 import ScreenCapture (pixelPatchTest)
 

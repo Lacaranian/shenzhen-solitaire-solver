@@ -6,7 +6,7 @@ import Data.Maybe (catMaybes, fromJust, isJust)
 
 import Game.Actions
 import Game.State
-import Util ( maxOn, maxOnOption, headOption, count )
+import Util ( maxOnOption, headOption )
 
 -- Any AI chooses one of the possible actions, or chooses to give up
 -- Game -> [Action] -> Maybe Action
@@ -23,11 +23,10 @@ firstMoveAI _ = headOption
 -- A somewhat dumb AI, stops as soon as it would incur costs by reducing its total moves
 -- Usually does nothing
 maximizeMovesAI :: AI
-maximizeMovesAI game [] = Nothing
-maximizeMovesAI game curActs =  if currentCount < fst bestNextCountAct then Just $ snd bestNextCountAct else Nothing
+maximizeMovesAI game curActs =  if any ((currentCount <) . fst) bestNextCountAct then fmap snd bestNextCountAct else Nothing
     where 
         currentCount = length curActs
-        bestNextCountAct = maxOn fst actsWithNextCount
+        bestNextCountAct = maxOnOption fst actsWithNextCount
         actsWithNextCount = map (\act -> (,act) . length . availableActions $ updateGame act game) curActs
 
 -- Some AI do better if some options are out-of-bounds for them

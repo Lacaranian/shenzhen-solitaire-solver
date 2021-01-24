@@ -1,7 +1,7 @@
 module Game.State where
 
 import Control.Monad (join)
-import Data.Bifunctor (bimap, first, second)
+import Data.Bifunctor (first)
 import Data.Maybe (catMaybes, mapMaybe, listToMaybe, maybeToList)
 
 import Geometry.BoardRegions

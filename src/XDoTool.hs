@@ -1,11 +1,9 @@
-{-# LANGUAGE TypeApplications #-}
 module XDoTool (drag, click, clickAt, findGameWindowID, focusWindow, mouseMove ) where
 
 
 import Control.Concurrent (threadDelay)
 import Control.Monad ( void )
 import Data.Maybe ( fromJust, isJust )
-import Data.Ratio ( (%) )
 import System.Process (readCreateProcess, proc, CreateProcess(..))
 
 import Geometry.BoardPositions ( Position(..) )

@@ -2,15 +2,14 @@
 module Game.Actions where
 
 import Control.Monad (guard)
-import Data.Bifunctor (bimap, first, second)
+import Data.Bifunctor (second)
 import Data.List (find)
-import Data.Maybe (maybe, catMaybes, mapMaybe, listToMaybe, maybeToList, fromMaybe, isJust)
+import Data.Maybe ( maybeToList, fromMaybe, isJust)
 
 import Game.State
 import Geometry.BoardRegions
 import Geometry.Buttons
-import Geometry.CardStacks
-import Util (headOption, lastOption, windows, takeWhilst, insertedAt, removedAt, replacedAt)
+import Util (headOption, insertedAt, removedAt, replacedAt)
 import XDoTool
 
 -- TODO - interleave a score with every Action
@@ -53,9 +52,12 @@ movesToFreeCells game = do
 movesToGoalCells :: Game -> [Move]
 movesToGoalCells game = do 
     (goalSlot, maybeCard) <- zipWith (\idx slot -> (GoalCellSlot idx, slot)) [0..] $ goalCellCards game
-    let (requiredNum, requiredSuit) = maybe (1, Nothing) (\(Card num suit) -> (num + 1, Just suit)) maybeCard
+    let (requiredNum, requiredSuit) = maybe (1, Nothing) nextGoalCard maybeCard
     (availablePosition, _) <- filter (matchesNumAndSuit requiredNum requiredSuit . snd) $ exposedStackCards game ++ exposedFreeCellCards game
-    return $ Move availablePosition goalSlot 
+    return $ Move availablePosition goalSlot
+    where
+        nextGoalCard (Card num suit) = (num + 1, Just suit)
+        nextGoalCard _ = undefined
 
 -- Moving any free cell card or stack to either
 --   - an empty card stack
@@ -77,6 +79,7 @@ exec :: Action -> IO ()
 exec (MoveAct (Move sourcePos destPos))            = drag (topCenter $ regionForGamePosition sourcePos) (topCenter $ regionForGamePosition destPos)
 exec (CompleteDragon (DragonCompletion suit _ _ )) = clickAt $ center $ dragonButtonForSuit suit
 exec NewGame                                       = clickAt $ center newGame
+exec (MoveRose _)                                  = return () -- Always automatic, no need to do anything
 
 -- The expected new game state after an action is run
 -- Notably, after many actions, uncovered cards will automatically move to goal stacks on their own, so this must account for those
@@ -147,9 +150,11 @@ automaticActions game = maybeToList moveRose ++ autoMoves
     where 
         moveRose  = fmap (MoveRose . fst) . find ((== Rose) . snd) $ exposedStackCards game
         autoMoves = map MoveAct . filter (isAutoMove . cardAtPosition game . sourcePosition) $ movesToGoalCells game
-        autoMoveNum = maximum $ map (maybe 2 (\(Card num _) -> num + 2)) $ goalCellCards game
+        autoMoveNum = maximum $ map (maybe 2 goalReach) $ goalCellCards game
         isAutoMove (Just (Card num _)) = num <= autoMoveNum
         isAutoMove _ = False
+        goalReach (Card num _) = num + 2
+        goalReach _            = undefined -- No other card types are in goal cells
 
 isInverseAction :: Action -> Action -> Bool
 isInverseAction (MoveAct (Move src dest)) (MoveAct (Move otherSrc otherDest)) = src == otherDest && dest == otherSrc

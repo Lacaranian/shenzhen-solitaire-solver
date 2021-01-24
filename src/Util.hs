@@ -2,7 +2,7 @@ module Util where
 
 import Data.List (transpose, tails)
 import Data.Maybe ( isNothing ) 
-import Data.Foldable (maximumBy, Foldable)
+import Data.Foldable (maximumBy)
 import Data.Ord      (comparing)
 
 -- safer O(n) version of (!!)
@@ -38,11 +38,8 @@ replacedAt 0   newValue (x : xs) = newValue : xs
 replacedAt idx newValue []       = undefined -- Can't access indices out of bounds
 replacedAt idx newValue (x : xs) = x : replacedAt (idx - 1) newValue xs
 
-maxOn :: (Foldable t, Ord a) => (b -> a) -> t b -> b
-maxOn = maximumBy . comparing
-
 maxOnOption :: (Foldable t, Ord a) => (b -> a) -> t b -> Maybe b
-maxOnOption func foldable  = if null foldable then Nothing else Just $ maxOn func foldable
+maxOnOption func foldable  = if null foldable then Nothing else Just $ (maximumBy . comparing) func foldable
 
 firstJust :: [a -> Maybe b] -> a -> Maybe b
 firstJust maybeGens seed = foldr (\gen value -> if isNothing value then gen seed else value) Nothing maybeGens

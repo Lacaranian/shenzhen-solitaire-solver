@@ -3,18 +3,13 @@ module Lib (winGame) where
 import Control.Concurrent (threadDelay)
 import Control.Monad ( void )
 
-import Geometry.BoardPositions ( Position(Pos) )
-import Geometry.BoardRegions ( center )
-import Geometry.CardStacks ( cardAtStack, freeCells )
-
 import Game.Actions ( Action, availableActions, execWithUpdate)
-import Game.AI ( scoredAI, firstMoveAI, maximizeMovesAI, antiDirectLoopingFilter )
+import Game.AI ( scoredAI )
 import Game.State ( Game ) 
 import Game.FromScreen (gameFromScreen)
 
-import XDoTool ( drag, findGameWindowID, focusWindow, mouseMove )
-import ScreenCapture ( cropPixbuf, screenshot )
-import Util ( firstJust ) 
+import XDoTool ( findGameWindowID, focusWindow, mouseMove )
+import ScreenCapture ( screenshot )
 
 winGame :: IO ()
 winGame = do

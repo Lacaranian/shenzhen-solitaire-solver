@@ -54,11 +54,12 @@ scoredAI game curActs = fmap fst . maxOnOption snd $ goodActionsWithScores
 
 -- Includes this action plus any automatic actions to follow
 actionScore :: Game -> Action -> Int
-actionScore game action = steppedScore + autoScore
+actionScore game action = steppedScore + autoScore + subgoalsScore
     where 
         autoScore = fst . foldl (\(curScore, curGame) act -> (curScore + actionScoreOnce curGame act, updateGameOnce curGame act)) (0, steppedGame) $ autoActs
         (steppedGame, steppedScore) = bimap (\f -> f game action) (\f -> f game action) (updateGameOnce, actionScoreOnce)
         (finalGame , autoActs) = autoUpdates steppedGame
+        subgoalsScore = valueOfExposedSubgoals steppedGame - valueOfExposedSubgoals game
 
 actionScoreOnce :: Game -> Action -> Int
 actionScoreOnce game (MoveAct (Move src dest)) = moveScore game src dest
@@ -103,6 +104,41 @@ removePositionScore game pos = betterIfAlreadyFull $ cardAtPosition game pos
 scoreForChangeInEmptySlots :: (Num p, Eq p) => p -> p -> p
 scoreForChangeInEmptySlots diff curSlots = valueOfEmptySlots (curSlots + diff) - valueOfEmptySlots curSlots
 
+-- Extra value for exposing non-automatic "progress", eg.
+-- - exposing a number that can be moved to a goal stack (though not automatically)
+-- - exposing a 4th dragon, for completion
+valueOfExposedSubgoals :: Game -> Int 
+valueOfExposedSubgoals game = goalableCardsValue + exposedFourDragonsValue
+    where 
+        stackableCardsValue = sum . map valueOfSubstackability $ substackableCardPositions game
+        goalableCardsValue = sum . map valueOfGoalableCard $ goalableCards game
+        exposedFourDragonsValue = (*4) . length . availableDragonCompletions $ game 
+
+valueOfGoalableCard :: (GamePosition, Card) -> Int 
+valueOfGoalableCard (CardStackSlot _ 0, card) = 3 -- Bonus for the last card, in addition to freeing up a free cell
+valueOfGoalableCard (pos, card) = 2
+
+goalableCards :: Game -> [(GamePosition, Card)]
+goalableCards game = filter (isGoalable goalCardValues . snd) $ exposedStackCards game ++ exposedFreeCellCards game
+    where
+        goalCardValues = map goalCardValue $ goalCellCards game 
+        goalCardValue (CellCard (Card num suit)) = (num, Just suit)
+        goalCardValue _                          = (0, Nothing)
+        isGoalable curValues (Card num suit) = any (\(curNum, maybeCurSuit) -> num == curNum + 1 && all (==suit) maybeCurSuit) curValues
+        isGoalable curValues _               = False
+
+substackableCardPositions :: Game -> [GamePosition]
+substackableCardPositions game = map fst stackableCardsWithPositions
+    where 
+        stackableCardsWithPositions = filter (\movableCard -> any (compatibleInSubstack (snd movableCard) . snd) stackLocations ) movableCards
+        movableCards = exposedFreeCellCards game ++ exposedStackSubstacks game
+        stackLocations = exposedStackCards game
+
+-- Value of being able to move from a given position onto a substack
+valueOfSubstackability :: GamePosition -> Int
+valueOfSubstackability (FreeCellSlot _) = 5
+valueOfSubstackability (CardStackSlot _ _) = 1
+valueOfSubstackability _ = 0
 
 valueOfSubstacking :: Bool -> Int 
 valueOfSubstacking True = 3
@@ -110,17 +146,12 @@ valueOfSubstacking False = 0
 
 valueOfEmptySlots :: (Eq p, Num p) => p -> p
 valueOfEmptySlots 0 = 0
-valueOfEmptySlots 1 = 5
+valueOfEmptySlots 1 = 4
 valueOfEmptySlots 2 = 8
 valueOfEmptySlots 3 = 10
 valueOfEmptySlots 4 = 11
 valueOfEmptySlots x = x + 7
 
-
--- TODO
--- Dont move a substack already on top of a substack compatibe number, onto another substack compatible number, 
--- UNLESS there's another matching top substack number that is not already on a substack number, and that one can't move
--- eg. a 4 on a 5 should not move to another 5, unless it'd make room for another 4
 
 -- Can we guarantee a game terminates? 
 -- Not easily, though probably...

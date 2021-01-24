@@ -21,7 +21,7 @@ freeCells :: [Region]
 freeCells = map (\n -> offset freeCell0 (Pos n 0 * adjacentCardOffset)) $ take 3 [0..]
 
 freeCell0 :: Region
-freeCell0 = offset cardSize (Pos 407 127)
+freeCell0 = offset cardSize (Pos 407 128)
 
 
 -- There are 3 goal stacks that start empty, and require cards from 1 to 9 to be added for each distinct suit

@@ -1,15 +1,20 @@
+{-# LANGUAGE TupleSections #-}
 module Game.State where
 
-import Control.Monad (join)
 import Data.Bifunctor (first)
 import Data.Maybe (catMaybes, mapMaybe, listToMaybe, maybeToList)
 
 import Geometry.BoardRegions
 import Geometry.CardStacks
-import Util ((!!?), lastOption, windows, takeWhilst, count)
+import Util ((!!?), lastOption, flipMaybe, windows, takeWhilst, count)
 
 
-data Game = Game { freeCellCards :: [Maybe Card], goalCellCards :: [Maybe Card], cardStackCards :: [[Card]] } deriving (Eq, Show)
+data Game = Game { freeCellCards :: [Cell], goalCellCards :: [Cell], cardStackCards :: [[Card]] } deriving (Eq, Show)
+
+data Cell = Empty 
+          | CellCard Card 
+          | Complete 
+          deriving (Eq, Show)
 
 data Card = Card Int CardSuit 
           | Dragon DragonSuit 
@@ -35,11 +40,19 @@ data GamePosition = FreeCellSlot Int
 data CardSlotContents = OneCard Card | NoCard
 
 cardAtPosition :: Game -> GamePosition -> Maybe Card
-cardAtPosition game (FreeCellSlot idx)          = join $ freeCellCards game !!? idx
-cardAtPosition game (GoalCellSlot idx)          = join $ goalCellCards game !!? idx
+cardAtPosition game (FreeCellSlot idx)          = maybeCardInCell =<< freeCellCards game !!? idx
+cardAtPosition game (GoalCellSlot idx)          = maybeCardInCell =<< goalCellCards game !!? idx
 cardAtPosition game (CardStackSlot stackID idx) = do 
     stack <- cardStackCards game !!? stackID
     stack !!? idx
+
+maybeCardInCell :: Cell -> Maybe Card
+maybeCardInCell (CellCard card) = Just card
+maybeCardInCell _               = Nothing
+
+cellFromMaybeCard :: Maybe Card -> Cell
+cellFromMaybeCard (Just card) = CellCard card
+cellFromMaybeCard Nothing     = Empty
 
 regionForGamePosition :: GamePosition -> Region
 regionForGamePosition (FreeCellSlot idx) = freeCells !! idx
@@ -85,18 +98,16 @@ compatibleInSubstack (Card num1 suit1) (Card num2 suit2) = num1 + 1 == num2 && s
 compatibleInSubstack _ _ = False
 
 exposedFreeCellCards :: Game -> [(GamePosition, Card)]
-exposedFreeCellCards game = mapMaybe (asFilled FreeCellSlot) . zip [0..] $ freeCellCards game
-        
+exposedFreeCellCards game = mapMaybe (fmap (first FreeCellSlot) . cardWithPosInCell) $ zip [0..] $ freeCellCards game
+    where 
+        cardWithPosInCell (idx, CellCard card) = Just (idx, card)
+        cardWithPosInCell _                    = Nothing
+
 openFreeCellSlots :: Game -> [GamePosition]
-openFreeCellSlots = mapMaybe (asOpen FreeCellSlot) . zip [0..] . freeCellCards
-
-asFilled :: (Int -> GamePosition) -> (Int, Maybe a) -> Maybe (GamePosition, a)
-asFilled posGen (idx, Just card) = Just (posGen idx, card)                         
-asFilled posGen (idx, Nothing)   = Nothing
-
-asOpen :: (Int -> GamePosition) -> (Int, Maybe a) -> Maybe GamePosition
-asOpen posGen (idx, Just _)  = Nothing
-asOpen posGen (idx, Nothing) = Just (posGen idx)
+openFreeCellSlots = mapMaybe (fmap FreeCellSlot . asFreeSlot) . zip [0..] . freeCellCards
+    where 
+        asFreeSlot (idx, Empty) = Just idx
+        asFreeSlot _            = Nothing
 
 isDragon :: Card -> Bool 
 isDragon (Dragon _) = True 
@@ -112,6 +123,14 @@ stacksOn _ _ = False
 
 numEmptySlots :: Game -> Int
 numEmptySlots game = length (openFreeCellSlots game) + count (==[]) (cardStackCards game)
+
+exposedSuitDragons :: Game -> DragonSuit -> [(GamePosition, Card)]
+exposedSuitDragons game dragonSuit = do
+    let exposedCards = exposedFreeCellCards game ++ exposedStackCards game
+    filter (isDragonOfSuit dragonSuit . snd) exposedCards
+    where 
+        isDragonOfSuit reqSuit (Dragon suit) = suit == reqSuit
+        isDragonOfSuit _ _ = False
 
 didWin :: Game -> Bool
 didWin game = all (==[]) $ cardStackCards game

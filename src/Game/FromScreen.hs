@@ -7,7 +7,7 @@ import System.Directory (getCurrentDirectory)
 import Graphics.UI.Gtk (Pixbuf(..))
 
 import CropInfo (CropInfo(..), CropIndex(..), CropType(..))
-import Game.State (Game(..), Card(..))
+import Game.State (Game(..), Card(..),cellFromMaybeCard)
 import Geometry.CardStacks (cardNumInfo,  cardAtStack, freeCells, goalCells, cardPresencePosition )
 import ScreenCapture ( saveCrop, cropPixbuf, pixelPatchTest )
 import SymbolRecognition ( classifyCard )
@@ -27,11 +27,13 @@ gameFromScreen pixbuf = do
     -- cards from those crops
     putStrLn "Free Cells: "
     freeCellCards <- mapM cardFromCardCrop freeCellCropInfos
+    let freeCells = map cellFromMaybeCard freeCellCards
     putStrLn "Goal stacks: "
-    goalStackCards <- mapM cardFromCardCrop goalStackCropInfos
+    goalCellCards <- mapM cardFromCardCrop goalStackCropInfos
+    let goalCells = map cellFromMaybeCard goalCellCards
     putStrLn "Card stacks: "
     cardStacks <- mapM cardsForStack cardStackCropInfos
-    return $ Game freeCellCards goalStackCards cardStacks
+    return $ Game freeCells goalCells cardStacks
 
 cardsForStack :: [CropInfo] -> IO [Card]
 cardsForStack cropInfos = do 

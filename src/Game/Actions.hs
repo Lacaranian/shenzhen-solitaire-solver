@@ -32,14 +32,10 @@ availableMoves game = movesToGoalCells game ++ movesToStacks game ++ movesToFree
 availableDragonCompletions :: Game -> [DragonCompletion]
 availableDragonCompletions game = do
     dragonSuit <- [Red, Green, White]
-    let exposedCards = exposedFreeCellCards game ++ exposedStackCards game
-    let exposedDragonsOfSuit = filter (isDragonOfSuit dragonSuit . snd) exposedCards
+    let exposedDragonsOfSuit = exposedSuitDragons game dragonSuit
     targetFreeCell <- maybeToList (find isFreeCellPosition (map fst exposedDragonsOfSuit)) ++ openFreeCellSlots game
     guard . (== 4) . length $ exposedDragonsOfSuit 
     return $ DragonCompletion dragonSuit (map fst exposedDragonsOfSuit) targetFreeCell
-    where 
-        isDragonOfSuit reqSuit (Dragon suit) = suit == reqSuit
-        isDragonOfSuit _ _ = False
 
 -- Move any exposed stack card to an empty free cell
 movesToFreeCells :: Game -> [Move]
@@ -51,11 +47,13 @@ movesToFreeCells game = do
 -- Move any exposed single card to a goal cell with a card of matching suit and 1 less value (or any 1 to any empty slot)
 movesToGoalCells :: Game -> [Move]
 movesToGoalCells game = do 
-    (goalSlot, maybeCard) <- zipWith (\idx slot -> (GoalCellSlot idx, slot)) [0..] $ goalCellCards game
-    let (requiredNum, requiredSuit) = maybe (1, Nothing) nextGoalCard maybeCard
+    (goalSlot, goalCell) <- zipWith (\idx slot -> (GoalCellSlot idx, slot)) [0..] $ goalCellCards game
+    let (requiredNum, requiredSuit) = nextGoalAttrs goalCell
     (availablePosition, _) <- filter (matchesNumAndSuit requiredNum requiredSuit . snd) $ exposedStackCards game ++ exposedFreeCellCards game
     return $ Move availablePosition goalSlot
     where
+        nextGoalAttrs (CellCard card) = nextGoalCard card
+        nextGoalAttrs _              = (1, Nothing)
         nextGoalCard (Card num suit) = (num + 1, Just suit)
         nextGoalCard _ = undefined
 
@@ -98,20 +96,20 @@ updateGameOnce game (CompleteDragon (DragonCompletion _ drags dest)) = removePos
 updateGameOnce game NewGame = undefined -- Randomized new game state that has to be screenshotted
 
 addedAtPosition :: GamePosition -> Card -> Game -> Game
-addedAtPosition (FreeCellSlot idx)          card game = game { freeCellCards = replacedAt idx (Just card) $ freeCellCards game} 
+addedAtPosition (FreeCellSlot idx)          card game = game { freeCellCards = replacedAt idx (CellCard card) $ freeCellCards game} 
 addedAtPosition (CardStackSlot stackID idx) card game = game { cardStackCards = replacedAt stackID (insertedAt idx card $ cscs !! stackID) cscs } -- TODO +1 to destIdx here, or in use sites?
     where cscs = cardStackCards game
-addedAtPosition (GoalCellSlot idx)          card game = game { goalCellCards = replacedAt idx (Just card) $ goalCellCards game} 
+addedAtPosition (GoalCellSlot idx)          card game = game { goalCellCards = replacedAt idx (CellCard card) $ goalCellCards game} 
 
 removedAtPosition :: GamePosition -> Game -> Game
-removedAtPosition (FreeCellSlot idx)          game = game { freeCellCards = replacedAt idx Nothing $ freeCellCards game} 
+removedAtPosition (FreeCellSlot idx)          game = game { freeCellCards = replacedAt idx Empty $ freeCellCards game} 
 removedAtPosition (CardStackSlot stackID idx) game = game { cardStackCards = replacedAt stackID (removedAt idx $ cscs !! stackID) cscs } -- HERE, removed in stack 0 idx 2, after there's only 2 there (idx 0 and 1)!
     where cscs = cardStackCards game
 -- Impossible to remove goal cell cards once moved, though it would be a card of matching suit and value 1 less, or else an empty cell
 removedAtPosition (GoalCellSlot idx)          game = undefined
 
 removePosition :: GamePosition -> Game -> Game
-removePosition (FreeCellSlot idx) game = game { freeCellCards = removedAt idx $ freeCellCards game }
+removePosition (FreeCellSlot idx) game = game { freeCellCards = replacedAt idx Complete $ freeCellCards game }
 removePosition _                  _    = undefined
 
 moveSubstack :: GamePosition -> GamePosition -> Game -> Game
@@ -150,7 +148,9 @@ automaticActions game = maybeToList moveRose ++ autoMoves
     where 
         moveRose  = fmap (MoveRose . fst) . find ((== Rose) . snd) $ exposedStackCards game
         autoMoves = map MoveAct . filter (isAutoMove . cardAtPosition game . sourcePosition) $ movesToGoalCells game
-        autoMoveNum = maximum $ map (maybe 2 goalReach) $ goalCellCards game
+        autoMoveNum = maximum $ map numForCell $ goalCellCards game
+        numForCell (CellCard card) = goalReach card
+        numForCell _               = 2
         isAutoMove (Just (Card num _)) = num <= autoMoveNum
         isAutoMove _ = False
         goalReach (Card num _) = num + 2

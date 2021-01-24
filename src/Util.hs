@@ -44,5 +44,9 @@ maxOnOption func foldable  = if null foldable then Nothing else Just $ (maximumB
 firstJust :: [a -> Maybe b] -> a -> Maybe b
 firstJust maybeGens seed = foldr (\gen value -> if isNothing value then gen seed else value) Nothing maybeGens
 
+flipMaybe :: b -> Maybe a -> Maybe b
+flipMaybe _  (Just _) = Nothing
+flipMaybe def Nothing = Just def
+
 count :: (a -> Bool) -> [a] -> Int 
 count pred xs = length $ filter pred xs

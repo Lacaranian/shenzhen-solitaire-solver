@@ -10,6 +10,9 @@ import Geometry.BoardPositions ( Position(..) )
 
 import Util (headOption)
 
+-- Two 60 fps frames or so of break time to let the game respond to changes
+padding :: IO ()
+padding = threadDelay 33333
 
 drag :: Position -> Position -> IO ()
 drag (Pos fromX fromY) (Pos toX toY) = do
@@ -20,9 +23,9 @@ drag (Pos fromX fromY) (Pos toX toY) = do
 holdWhile :: IO a -> IO ()
 holdWhile act = do
     press
-    threadDelay 15000
+    padding
     act
-    threadDelay 15000
+    padding
     void release
 
 clickAt :: Position -> IO ()
@@ -31,11 +34,11 @@ clickAt (Pos x y) = mouseMove x y >> click
 click :: IO ()
 click = press >> void release
 
-press :: IO String
-press = xdotool ["mousedown", "1"]
+press :: IO ()
+press = xdotool ["mousedown", "1"] >> padding
 
-release :: IO String
-release = xdotool ["mouseup", "1"]
+release :: IO ()
+release = xdotool ["mouseup", "1"] >> padding
 
 -- Moving only a few pixels at a time, lerping
 smoothMouseMove :: Int -> Int -> Int -> IO ()
@@ -50,8 +53,8 @@ smoothMouseMove granularity x y = do
     mapM_ (uncurry mouseMove) stepDestinations
     
 
-mouseMove :: Int -> Int -> IO String
-mouseMove x y = xdotool ["mousemove", "--sync", show x, show y]
+mouseMove :: Int -> Int -> IO ()
+mouseMove x y = void $ xdotool ["mousemove", "--sync", show x, show y]
 
 findGameWindowID :: IO String
 findGameWindowID = xdotool ["search", "--name", "SHENZHEN I/O"]

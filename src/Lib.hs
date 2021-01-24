@@ -43,7 +43,7 @@ actionLoop game = do
     threadDelay 5000000 -- 0.5 seconds, to let the game open/update before moving things along
     let bestAct = scoredAI game availActs
     case bestAct of
-        Nothing  -> void $ putStrLn "" >> putStrLn ("Found no actions among "++ show availActs ++" for game state" ++ show game)
+        Nothing  -> void $ putStrLn "" >> putStrLn ("Found no actions among " ++ show availActs ++ " for game state:") >> print game
         -- 4) take the best possible action (moves with a mouse click mouse press + drag + release)
         Just act -> takeMove game act
 
